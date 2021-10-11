@@ -1,7 +1,15 @@
 SHELL := /bin/bash
 
+# ==============================================================================
+# Testing running system
+
+
+# expvarmon -ports=":4000" -vars="build,requests,goroutines,errors,panics,mem:memstats.Alloc"
+
+# ==============================================================================
+
 run:
-	go run main.go
+	go run app/services/sales-api/main.go | go run app/tooling/logfmt/main.go
 
 # Build containers
 
@@ -47,7 +55,7 @@ kind-status-sales:
 	kubectl get pods -o wide --watch
 
 kind-logs:
-	kubectl logs -l app=sales --all-containers=true -f --tail=100
+	kubectl logs -l app=sales --all-containers=true -f --tail=100 | go run app/tooling/logfmt/main.go
 
 kind-restart:
 	kubectl rollout restart deployment sales-pod
