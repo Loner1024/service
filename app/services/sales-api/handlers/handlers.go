@@ -6,6 +6,8 @@ import (
 	"net/http/pprof"
 	"os"
 
+	"github.com/Loner1024/service/foundation/web/mid"
+
 	"github.com/Loner1024/service/foundation/web"
 
 	"github.com/Loner1024/service/app/services/sales-api/handlers/v1/testgrp"
@@ -48,7 +50,10 @@ type APIMuxConfig struct {
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
-	app := web.NewApp(cfg.Shutdown)
+	app := web.NewApp(
+		cfg.Shutdown,
+		mid.Logger(cfg.Log),
+	)
 
 	v1(app, cfg)
 
