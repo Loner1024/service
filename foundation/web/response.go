@@ -7,6 +7,9 @@ import (
 )
 
 func Response(ctx context.Context, w http.ResponseWriter, data interface{}, statusCode int) error {
+
+	SetStatusCode(ctx, statusCode)
+
 	if statusCode == http.StatusNoContent {
 		w.WriteHeader(statusCode)
 		return nil
