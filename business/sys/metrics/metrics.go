@@ -9,13 +9,13 @@ var m *metrics
 
 type metrics struct {
 	goroutines *expvar.Int
-	requests *expvar.Int
-	errors *expvar.Int
-	panics *expvar.Int
+	requests   *expvar.Int
+	errors     *expvar.Int
+	panics     *expvar.Int
 }
 
 func init() {
-	m=&metrics{
+	m = &metrics{
 		goroutines: expvar.NewInt("goroutines"),
 		requests:   expvar.NewInt("requests"),
 		errors:     expvar.NewInt("errors"),
@@ -28,25 +28,31 @@ type ctxKey int
 const key ctxKey = 1
 
 func Set(ctx context.Context) context.Context {
-	return context.WithValue(ctx,key,m)
+	return context.WithValue(ctx, key, m)
 }
 
 func AddGoroutines(ctx context.Context) {
-	if v,ok:=ctx.Value(key).(*metrics);ok{
-		if v.requests.Value() % 100 == 0 {
+	if v, ok := ctx.Value(key).(*metrics); ok {
+		if v.requests.Value()%100 == 0 {
 			v.requests.Add(1)
 		}
 	}
 }
 
+func AddRequest(ctx context.Context) {
+	if v, ok := ctx.Value(key).(*metrics); ok {
+		v.requests.Add(1)
+	}
+}
+
 func AddErrors(ctx context.Context) {
-	if v,ok:=ctx.Value(key).(*metrics);ok{
-			v.errors.Add(1)
+	if v, ok := ctx.Value(key).(*metrics); ok {
+		v.errors.Add(1)
 	}
 }
 
 func AddPanic(ctx context.Context) {
-	if v,ok:=ctx.Value(key).(*metrics);ok{
+	if v, ok := ctx.Value(key).(*metrics); ok {
 		v.panics.Add(1)
 	}
 }
