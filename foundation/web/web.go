@@ -44,10 +44,10 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 			TraceID: uuid.New().String(),
 			Now:     time.Now(),
 		}
-		ctx = context.WithValue(ctx, key, v)
+		ctx = context.WithValue(ctx, key, &v)
 
 		// Pre code processing
-		if err := handler(r.Context(), w, r); err != nil {
+		if err := handler(ctx, w, r); err != nil {
 			return
 		}
 	}

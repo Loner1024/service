@@ -16,7 +16,7 @@ type Values struct {
 	StatusCode int
 }
 
-func GetValue(ctx context.Context) (*Values, error) {
+func GetValues(ctx context.Context) (*Values, error) {
 	v, ok := ctx.Value(key).(*Values)
 	if !ok {
 		return nil, errors.New("web value missing from context")
