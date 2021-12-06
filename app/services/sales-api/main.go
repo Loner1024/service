@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"syscall"
 	"time"
-
+	
 	"github.com/Loner1024/service/app/services/sales-api/handlers"
-
+	
 	"github.com/ardanlabs/conf"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
@@ -32,7 +32,7 @@ func main() {
 	//
 	//
 	// log.Println("stopping services")
-
+	
 	// Construct the application logger.
 	log, err := initLogger("SALES-API")
 	if err != nil {
@@ -40,22 +40,22 @@ func main() {
 		os.Exit(1)
 	}
 	defer log.Sync()
-
+	
 	err = run(log)
 	if err != nil {
 		log.Errorw("startup", "ERROR", err)
 		os.Exit(1)
 	}
-
+	
 }
 
 func run(log *zap.SugaredLogger) error {
 	if _, err := maxprocs.Set(maxprocs.Logger(log.Infof)); err != nil {
 		return fmt.Errorf("maxprocs: %w", err)
 	}
-
+	
 	log.Infof("starting services build[%s] CPU[%d]", build, runtime.GOMAXPROCS(0))
-
+	
 	// Configuration
 	cfg := struct {
 		conf.Version
@@ -83,39 +83,45 @@ func run(log *zap.SugaredLogger) error {
 		}
 		return fmt.Errorf("parsing config: %w", err)
 	}
-
+	
 	// App starting
 	log.Infow("starting service", "version", build)
 	defer log.Infow("shutdown complete")
-
+	
 	out, err := conf.String(&cfg)
 	if err != nil {
 		return fmt.Errorf("generating config for output: %w", err)
 	}
 	log.Infow("start up", "config", out)
-
+	
 	expvar.NewString("build").Set(build)
-
+	
 	// starting debug
 	log.Infow("startup", "status", "debug router started", "host", cfg.Web.DebugHost)
-
-	debugMux := handlers.DebugStandardLibraryMux()
-
+	
+	debugMux := handlers.DebugMux(build, log)
+	
 	go func() {
 		if err := http.ListenAndServe(cfg.Web.DebugHost, debugMux); err != nil {
 			log.Infow("shutdown", "status", "debug router closed", "host", cfg.Web.DebugHost, "ERROR", err)
 		}
 	}()
-
+	
 	// starting app
 	log.Infow("startup", "status", "initializing API support")
-
+	
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 	// Construct a server to service the requests against the mux.
+	
+	apiMux := handlers.APIMux(handlers.APIMuxConfig{
+		Shutdown: shutdown,
+		Log:      log,
+	})
+	
 	api := http.Server{
 		Addr:         cfg.Web.APIHost,
-		Handler:      nil,
+		Handler:      apiMux,
 		ReadTimeout:  cfg.Web.ReadTimeout,
 		WriteTimeout: cfg.Web.WriteTimeout,
 		IdleTimeout:  cfg.Web.IdleTimeout,
@@ -124,34 +130,34 @@ func run(log *zap.SugaredLogger) error {
 	// Make a channel to listen for errors coming from the listener. Use a
 	// buffered channel so the goroutine can exit if we don't collect this error.
 	serverErrors := make(chan error, 1)
-
+	
 	// Start the service listening for api requests.
 	go func() {
 		log.Infow("startup", "status", "api router started", "host", api.Addr)
 		serverErrors <- api.ListenAndServe()
 	}()
 	// Shutdown
-
+	
 	// Blocking main and waiting for shutdown.
 	select {
 	case err := <-serverErrors:
 		return fmt.Errorf("server error: %w", err)
-
+	
 	case sig := <-shutdown:
 		log.Infow("shutdown", "status", "shutdown started", "signal", sig)
 		defer log.Infow("shutdown", "status", "shutdown complete", "signal", sig)
-
+		
 		// Give outstanding requests a deadline for completion.
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
 		defer cancel()
-
+		
 		// Asking listener shutdown and shed load.
 		if err := api.Shutdown(ctx); err != nil {
 			api.Close()
 			return fmt.Errorf("could not stop server gracefully: %w", err)
 		}
 	}
-
+	
 	return nil
 }
 
